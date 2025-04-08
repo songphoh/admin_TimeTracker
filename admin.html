@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ระบบติดตามคิวลงเวลาทำงาน - อบต.หัวนา</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css"
+    />
+    <link
+      rel="icon"
+      href="https://www.huana-nbp.go.th/index/add_file/qOv0r0dTue83729.png"
+      type="image/png"
+    />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=K2D&family=Kanit&family=Sriracha&display=swap");
+
+      body {
+        background-color: #f8f9fa;
+        font-family: "Kanit", sans-serif;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 20px auto;
+      }
+
+      .card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .card-header {
+        background-color: #007bff;
+        color: white;
+        border-radius: 10px 10px 0 0;
+        padding: 15px 20px;
+      }
+
+      .queue-container {
+        height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+      }
+
+      .queue-item {
+        background-color: white;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        border-left: 5px solid #007bff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .queue-item.active {
+        border-left-color: #28a745;
+        background-color: #f0fff0;
+      }
+
+      .queue-number {
+        display: inline-block;
+        min-width: 30px;
+        padding: 3px 7px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #fff;
+        text-align: center;
+        background-color: #007bff;
+        border-radius: 15px;
+        margin-right: 10px;
+      }
+
+      .active .queue-number {
+        background-color: #28a745;
+      }
+
+      .stats-card {
+        text-align: center;
+        padding: 15px;
+      }
+
+      .stats-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #007bff;
+      }
+
+      .refresh-btn {
+        position: absolute;
+        right: 15px;
+        top: 12px;
+      }
+
+      .site-logo {
+        content: url("https://www.huana-nbp.go.th/index/add_file/qOv0r0dTue83729.png");
+        display: block;
+        margin: 0 auto 20px auto;
+        width: auto;
+        height: 80px;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 0 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="site-logo"></div>
+      <h2 class="text-center mb-4">ระบบติดตามคิวลงเวลาทำงาน อบต.หัวนา</h2>
+
+      <!-- แสดงข้อความสถานะ -->
+      <div
+        class="alert"
+        role="alert"
+        id="status-message"
+        style="display: none"
+      ></div>
+
+      <!-- สถิติภาพรวมของคิว -->
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <div class="card stats-card">
+            <h5>จำนวนคิวรอดำเนินการ</h5>
+            <div class="stats-number" id="waiting-count">0</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card stats-card">
+            <h5>กำลังดำเนินการ</h5>
+            <div class="stats-number" id="in-progress">0</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card stats-card">
+            <h5>ดำเนินการแล้วทั้งหมด</h5>
+            <div class="stats-number" id="total-processed">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- รายการคิวปัจจุบัน -->
+      <div class="card">
+        <div class="card-header">
+          รายการคิวรอดำเนินการ
+          <button
+            class="btn btn-sm btn-light refresh-btn"
+            onclick="fetchQueueData()"
+          >
+            <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+          </button>
+        </div>
+        <div class="queue-container" id="queue-list">
+          <!-- รายการคิวจะถูกเพิ่มที่นี่ด้วย JavaScript -->
+          <div class="text-center text-muted p-5">กำลังโหลดข้อมูล...</div>
+        </div>
+      </div>
+
+      <!-- ตัวเลือกสำหรับผู้ดูแลระบบ -->
+      <div class="card">
+        <div class="card-header">การจัดการคิว</div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <button
+                class="btn btn-primary w-100 mb-2"
+                onclick="processSingleQueue()"
+              >
+                ประมวลผลคิวถัดไปทันที
+              </button>
+            </div>
+            <div class="col-md-6">
+              <button
+                class="btn btn-danger w-100 mb-2"
+                onclick="clearAllQueue()"
+              >
+                ล้างข้อมูลคิวทั้งหมด
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- บันทึกกิจกรรมคิว -->
+      <div class="card">
+        <div class="card-header">บันทึกกิจกรรมล่าสุด</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>เวลา</th>
+                  <th>ชื่อพนักงาน</th>
+                  <th>ประเภท</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="queue-logs">
+                <tr>
+                  <td colspan="4" class="text-center">กำลังโหลดข้อมูล...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // URL ของสคริปต์ Apps Script (ต้องเปลี่ยนเป็น URL ที่ได้จากการ deploy)
+      const scriptUrl =
+        "https://script.google.com/macros/s/AKfycbwm3dlyVLLOKoEPamIXqltJ0jCVUpOXnINqQ2iQLLcsTeQh6w-OuoDQIkvIk7VBObuM/exec";
+
+      // ดึงข้อมูลคิวล่าสุด
+      function fetchQueueData() {
+        $("#queue-list").html(
+          '<div class="text-center text-muted p-5">กำลังโหลดข้อมูล...</div>'
+        );
+
+        $.ajax({
+          url: scriptUrl,
+          type: "POST",
+          data: {
+            opt: "getQueueStatus",
+          },
+          success: function (response) {
+            updateQueueDisplay(response);
+            fetchQueueLogs();
+          },
+          error: function (error) {
+            console.error("Error fetching queue data:", error);
+            $("#queue-list").html(
+              '<div class="text-center text-danger p-5">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>'
+            );
+          },
+        });
+      }
+
+      // ดึงข้อมูลบันทึกกิจกรรมคิว
+      function fetchQueueLogs() {
+        $.ajax({
+          url: scriptUrl,
+          type: "POST",
+          data: {
+            opt: "getQueueLogs",
+            limit: 10, // ดึงข้อมูล 10 รายการล่าสุด
+          },
+          success: function (response) {
+            updateQueueLogs(response);
+          },
+          error: function (error) {
+            console.error("Error fetching queue logs:", error);
+          },
+        });
+      }
+
+      // อัปเดตการแสดงผลคิว
+      function updateQueueDisplay(data) {
+        // อัปเดตสถิติ
+        $("#waiting-count").text(data.waitingList.length);
+        $("#in-progress").text(data.inProgress);
+        $("#total-processed").text(data.totalProcessed);
+
+        // แสดงรายการคิว
+        const queueList = $("#queue-list");
+        queueList.empty();
+
+        if (data.waitingList.length === 0) {
+          queueList.html(
+            '<div class="text-center text-muted p-5">ไม่มีคิวที่รอดำเนินการ</div>'
+          );
+          return;
+        }
+
+        data.waitingList.forEach((item, index) => {
+          const isActive = index === 0 && data.inProgress > 0;
+          const status = isActive ? "กำลังประมวลผล" : "รอดำเนินการ";
+          const waitTime = Math.round(
+            (new Date().getTime() - item.timestamp) / 1000
+          );
+          const operationType =
+            item.operation === "clockin" ? "ลงเวลาเข้า" : "ลงเวลาออก";
+
+          const queueItem = `
+          <div class="queue-item ${isActive ? "active" : ""}">
+            <div>
+              <span class="queue-number">${item.queueNumber}</span>
+              <strong>${item.name}</strong>
+              <span class="badge bg-${
+                isActive ? "success" : "secondary"
+              } float-end">${status}</span>
+            </div>
+            <div class="mt-2">
+              <small>
+                <strong>เวลาที่เข้าคิว:</strong> ${new Date(
+                  item.timestamp
+                ).toLocaleTimeString()}
+                <strong class="ms-3">รอแล้ว:</strong> ${waitTime} วินาที
+                <strong class="ms-3">ประเภท:</strong> ${operationType}
+              </small>
+            </div>
+          </div>
+        `;
+
+          queueList.append(queueItem);
+        });
+      }
+
+      // อัปเดตบันทึกกิจกรรมคิว
+      function updateQueueLogs(logs) {
+        const logsContainer = $("#queue-logs");
+        logsContainer.empty();
+
+        if (!logs || logs.length === 0) {
+          logsContainer.html(
+            '<tr><td colspan="4" class="text-center">ไม่มีบันทึกกิจกรรม</td></tr>'
+          );
+          return;
+        }
+
+        logs.forEach((log) => {
+          const operationType =
+            log.operationType === "clockin"
+              ? "ลงเวลาเข้า"
+              : log.operationType === "clockout"
+              ? "ลงเวลาออก"
+              : log.operationType === "CLEAR"
+              ? "ล้างคิว"
+              : log.operationType;
+
+          const statusClass =
+            log.status === "COMPLETED"
+              ? "success"
+              : log.status === "FAILED"
+              ? "danger"
+              : log.status === "PROCESSING"
+              ? "primary"
+              : "secondary";
+
+          const statusText =
+            log.status === "COMPLETED"
+              ? "สำเร็จ"
+              : log.status === "FAILED"
+              ? "ล้มเหลว"
+              : log.status === "PROCESSING"
+              ? "กำลังประมวลผล"
+              : log.status === "ADDED_TO_QUEUE"
+              ? "เพิ่มในคิว"
+              : log.status === "QUEUE_CLEARED"
+              ? "ล้างคิว"
+              : log.status;
+
+          const logRow = `
+          <tr>
+            <td>${new Date(log.timestamp).toLocaleString()}</td>
+            <td>${log.employee}</td>
+            <td>${operationType}</td>
+            <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+          </tr>
+        `;
+
+          logsContainer.append(logRow);
+        });
+      }
+
+      // ประมวลผลคิวถัดไปทันที
+      function processSingleQueue() {
+        $.ajax({
+          url: scriptUrl,
+          type: "POST",
+          data: {
+            opt: "processNextQueue",
+          },
+          success: function (response) {
+            if (response.success) {
+              showStatusMessage("ประมวลผลคิวถัดไปเรียบร้อยแล้ว", "success");
+            } else {
+              showStatusMessage("ไม่มีคิวที่รอดำเนินการ", "warning");
+            }
+            fetchQueueData();
+          },
+          error: function (error) {
+            console.error("Error processing queue:", error);
+            showStatusMessage("เกิดข้อผิดพลาดในการประมวลผลคิว", "danger");
+          },
+        });
+      }
+
+      // ล้างข้อมูลคิวทั้งหมด
+      function clearAllQueue() {
+        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการล้างข้อมูลคิวทั้งหมด?")) {
+          return;
+        }
+
+        $.ajax({
+          url: scriptUrl,
+          type: "POST",
+          data: {
+            opt: "clearQueue",
+          },
+          success: function (response) {
+            showStatusMessage("ล้างข้อมูลคิวเรียบร้อยแล้ว", "success");
+            fetchQueueData();
+          },
+          error: function (error) {
+            console.error("Error clearing queue:", error);
+            showStatusMessage("เกิดข้อผิดพลาดในการล้างข้อมูลคิว", "danger");
+          },
+        });
+      }
+
+      // แสดงข้อความสถานะ
+      function showStatusMessage(message, type) {
+        const statusElement = $("#status-message");
+        statusElement
+          .removeClass("alert-success alert-warning alert-danger")
+          .addClass(`alert-${type}`)
+          .text(message)
+          .show();
+
+        setTimeout(() => {
+          statusElement.hide();
+        }, 5000);
+      }
+
+      // โหลดข้อมูลคิวเมื่อเปิดหน้า
+      $(document).ready(function () {
+        fetchQueueData();
+
+        // รีเฟรชข้อมูลทุก 10 วินาที
+        setInterval(fetchQueueData, 10000);
+      });
+    </script>
+  </body>
+</html>
